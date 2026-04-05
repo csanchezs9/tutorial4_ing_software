@@ -2,7 +2,38 @@ from django.shortcuts import get_object_or_404
 
 from .domain.builders import OrdenBuilder
 from .domain.logic import CalculadorImpuestos
-from .models import Inventario, Libro
+from .models import Inventario, Libro, Orden
+
+
+# ============================================================
+# PASO 3: Service Layer - Compra Rapida
+# ============================================================
+class CompraRapidaService:
+    """
+    Orquesta la compra rápida respetando SOLID:
+    - SRP: solo gestiona el flujo de compra
+    - DIP: recibe el procesador de pago por inyección
+    """
+
+    def __init__(self, procesador_pago):
+        self.procesador_pago = procesador_pago
+
+    def procesar(self, libro_id):
+        libro = get_object_or_404(Libro, id=libro_id)
+        inv = get_object_or_404(Inventario, libro=libro)
+
+        if inv.cantidad <= 0:
+            raise ValueError("No hay existencias.")
+
+        total = CalculadorImpuestos.obtener_total_con_iva(libro.precio)
+
+        if self.procesador_pago.pagar(total):
+            inv.cantidad -= 1
+            inv.save()
+            Orden.objects.create(libro=libro, total=total)
+            return total
+
+        raise Exception("La transacción fue rechazada.")
 
 
 class CompraService:
