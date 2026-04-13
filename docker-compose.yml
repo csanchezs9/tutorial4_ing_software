@@ -12,10 +12,8 @@ services:
       - POSTGRES_PASSWORD=secret_password
 
   # Servicio de tu API Django
-  web:
+  web_django: # El Monolito (v1)
     build: .
-    # CAMBIO 1: Usamos Gunicorn en lugar de runserver
-    # 'Tienda' es el nombre de la carpeta donde esta wsgi.py
     command: gunicorn Tienda.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/app
@@ -27,18 +25,22 @@ services:
       - DB_PASSWORD=secret_password
       - DB_HOST=db
       - DB_PORT=5432
-    # NOTA: Ya no hay seccion 'ports' aqui. Django esta aislado.
 
-  # CAMBIO 2: Agregamos el servicio Nginx
+  pagos_flask: # El Microservicio (v2) - EL ESTRANGULADOR
+    build: ./microservicio_pagos
+    ports:
+      - "5000:5000" # Solo para pruebas iniciales, luego lo cerraremos
+
+  # Nginx - Reverse Proxy
   nginx:
     image: nginx:1.25-alpine
     ports:
-      - "80:80"  # Nginx es el unico que da la cara a internet
+      - "80:80"
     volumes:
-      # Inyectamos nuestro archivo de configuracion en el contenedor
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      - web
+      - web_django
+      - pagos_flask
 
 # Definicion del volumen persistente
 volumes:
